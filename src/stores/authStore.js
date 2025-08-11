@@ -14,8 +14,8 @@ export const useAuthStore = defineStore(
       token.value = token_data;
     };
 
-    let is_staff = computed(() => {
-      return !!(token.value && user.value.is_staff);
+    let is_superuser = computed(() => {
+      return !!(token.value && user.value.is_superuser);
     });
 
     let logout = async () => {
@@ -28,7 +28,7 @@ export const useAuthStore = defineStore(
       setUserToken,
       user,
       token,
-      is_staff,
+      is_superuser,
       logout,
     };
   },

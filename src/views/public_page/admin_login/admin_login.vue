@@ -72,7 +72,10 @@
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { login_api } from "@/apis/user_api";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/authStore";
 
+const router = useRouter();
 const formRef = ref(null);
 
 const form = reactive({
@@ -93,11 +96,14 @@ const rules = {
   password: [{ required: true, trigger: "blur" }],
 };
 
+const authStore = useAuthStore();
+
 const onSubmit = () => {
   formRef.value?.validate(async (ok) => {
     const data = await login_api(form.email, form.password);
     console.log(data);
-
+    authStore.setUserToken(data.user, data.token);
+    router.push({ name: "admin-home" });
     ElMessage.success("Form validated. Starting the test...");
   });
 };
