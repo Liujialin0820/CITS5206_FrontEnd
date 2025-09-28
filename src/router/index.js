@@ -48,11 +48,38 @@ const router = createRouter({
           component: () =>
             import("@/views/admin_page/question_bank/question_bank.vue"),
         },
+        // ----------------- Test Paper 模块 -----------------
         {
           path: "test-papers",
           name: "test-papers",
           component: () =>
             import("@/views/admin_page/test_papers/test_papers.vue"),
+        },
+        {
+          path: "test-papers/create",
+          name: "create-test-paper",
+          component: () =>
+            import("@/views/admin_page/test_papers/create_test_paper.vue"),
+        },
+        {
+          path: "test-papers/:id/edit",
+          name: "edit-test-paper",
+          component: () =>
+            import("@/views/admin_page/test_papers/edit_test_paper.vue"),
+          props: true,
+        },
+        {
+          path: "test-papers/:id/preview",
+          name: "preview-test-paper",
+          component: () =>
+            import("@/views/admin_page/test_papers/preview_test_paper.vue"),
+          props: true,
+        },
+        {
+          path: "test-papers/result",
+          name: "test-result",
+          component: () =>
+            import("@/views/admin_page/test_papers/test_result.vue"),
         },
         {
           path: "students",
