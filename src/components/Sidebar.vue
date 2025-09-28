@@ -7,27 +7,28 @@
 
     <el-menu
       class="menu"
+      router
       background-color="transparent"
       text-color="#e6eaf6"
       active-text-color="#ffffff"
       :default-active="active"
     >
-      <el-menu-item index="dashboard">
+      <el-menu-item index="/admin-home/dashboard">
         <el-icon><i class="el-icon-menu" /></el-icon>
         <span>Dashboard</span>
       </el-menu-item>
 
-      <el-menu-item index="question-bank">
+      <el-menu-item index="/admin-home/question-bank">
         <el-icon><i class="el-icon-document" /></el-icon>
         <span>Question Bank</span>
       </el-menu-item>
 
-      <el-menu-item index="test-papers">
+      <el-menu-item index="/admin-home/test-papers">
         <el-icon><i class="el-icon-files" /></el-icon>
         <span>Test Paper Pool</span>
       </el-menu-item>
 
-      <el-menu-item index="students">
+      <el-menu-item index="/admin-home/students">
         <el-icon><i class="el-icon-user" /></el-icon>
         <span>Student Information</span>
       </el-menu-item>
