@@ -1,6 +1,6 @@
 <template>
   <div class="question-bank">
-    <!-- 顶部操作按钮 -->
+    <!-- Top toolbar -->
     <div class="toolbar">
       <el-button
         type="primary"
@@ -15,11 +15,11 @@
       </el-button>
     </div>
 
-    <!-- 搜索和筛选 -->
+    <!-- Filters -->
     <div class="filters">
       <el-input
         v-model="search"
-        placeholder="Search"
+        placeholder="Search by name"
         prefix-icon="Search"
         clearable
         class="search-box"
@@ -36,108 +36,184 @@
       </el-select>
     </div>
 
-    <!-- 表格 -->
+    <!-- Table -->
     <el-table :data="filteredData" stripe border style="width: 100%">
-      <el-table-column prop="id" label="id" width="100" />
-      <el-table-column prop="code" label="name" width="120" />
-      <el-table-column prop="name" label="category" />
-      <el-table-column prop="type" label="type" />
-      <el-table-column prop="level" label="Level" />
+      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="name" label="Name" min-width="160" />
+      <el-table-column prop="category" label="Category" width="140" />
+      <el-table-column prop="type" label="Type" width="160" />
+      <el-table-column prop="level" label="Level" width="120" />
+      <el-table-column prop="marks" label="Marks" width="100" />
 
       <el-table-column label="Actions" width="240">
         <template #default="scope">
-          <el-button size="small" @click="preview(scope.row)"
-            >Preview</el-button
-          >
-          <el-button size="small" type="primary" plain @click="edit(scope.row)"
-            >Edit</el-button
-          >
-          <el-button size="small" type="danger" plain @click="del(scope.row)"
-            >Delete</el-button
-          >
+          <el-button size="small" @click="preview(scope.row)">Preview</el-button>
+          <el-button size="small" type="primary" plain @click="edit(scope.row)">
+            Edit
+          </el-button>
+          <el-button size="small" type="danger" plain @click="del(scope.row)">
+            Delete
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
+    <!-- Pagination -->
     <div class="pagination">
       <el-pagination
         background
         layout="prev, pager, next"
-        :total="50"
-        :page-size="10"
+        :total="total"
+        :page-size="pageSize"
         v-model:current-page="page"
+        @current-change="loadQuestions"
       />
     </div>
+
+    <!-- Preview Dialog -->
+    <el-dialog
+      v-model="previewVisible"
+      title="Preview Question"
+      width="600px"
+      destroy-on-close
+    >
+      <div v-if="currentQuestion">
+        <!-- title + marks -->
+        <p>
+          <strong>{{ currentQuestion.name }}</strong>
+          <span v-if="currentQuestion.marks">({{ currentQuestion.marks }} marks)</span>
+        </p>
+        <p>{{ currentQuestion.question_text }}</p>
+
+        <!-- image preview -->
+        <div v-if="currentQuestion.image" class="preview-image">
+          <img :src="currentQuestion.image.image" alt="question image" />
+        </div>
+
+        <!-- Single choice -->
+        <el-radio-group
+          v-if="currentQuestion.type === 'Single Choice'"
+          v-model="selectedAnswer"
+        >
+          <el-radio
+            v-for="(choice, index) in currentQuestion.choices"
+            :key="choice.id || index"
+            :label="index"
+          >
+            {{ String.fromCharCode(65 + index) }}. {{ choice.text }}
+          </el-radio>
+        </el-radio-group>
+
+        <!-- Multiple choice -->
+        <el-checkbox-group v-else v-model="selectedAnswers">
+          <el-checkbox
+            v-for="(choice, index) in currentQuestion.choices"
+            :key="choice.id || index"
+            :label="index"
+          >
+            {{ String.fromCharCode(65 + index) }}. {{ choice.text }}
+          </el-checkbox>
+        </el-checkbox-group>
+      </div>
+
+      <template #footer>
+        <el-button @click="previewVisible = false">Close</el-button>
+        <el-button type="primary" @click="submitPreviewAnswer">Submit</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+// All comments in English
+import { ref, computed, onMounted } from "vue";
 import { Plus, Upload, Search } from "@element-plus/icons-vue";
+import { get_questions_api, delete_question_api } from "@/apis/admin_api";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 const search = ref("");
 const selectedCategory = ref("");
 const selectedLevel = ref("");
 const page = ref(1);
+const pageSize = 10;
+const total = ref(0);
+const tableData = ref([]);
 
-// 示例数据
-const tableData = ref([
-  {
-    id: "00001",
-    code: "Q001",
-    name: "Basic Greetings",
-    category: "Vocabulary",
-    type: "Multiple Choice",
-    level: "Level 1",
-  },
-  {
-    id: "00002",
-    code: "Q002",
-    name: "Food and Drinks",
-    category: "Grammar",
-    type: "Multiple Choice",
-    level: "Level 2",
-  },
-  {
-    id: "00003",
-    code: "Q003",
-    name: "Numbers Recognition",
-    category: "Vocabulary",
-    type: "Single Choice",
-    level: "Level 3",
-  },
-  {
-    id: "00004",
-    code: "Q004",
-    name: "Verb Conjugation",
-    category: "Grammar",
-    type: "Single Choice",
-    level: "Level 4",
-  },
-]);
+const previewVisible = ref(false);
+const currentQuestion = ref(null);
+const selectedAnswer = ref(null); // single choice
+const selectedAnswers = ref([]); // multiple choice
 
-// 筛选逻辑
+// Load questions
+async function loadQuestions() {
+  try {
+    const params = {
+      page: page.value,
+      page_size: pageSize,
+      category: selectedCategory.value || undefined,
+      level: selectedLevel.value || undefined,
+      search: search.value || undefined,
+    };
+    const data = await get_questions_api(params);
+    tableData.value = data.results || data;
+    total.value = data.count || data.length || 0;
+  } catch (err) {
+    console.error("❌ Failed to load questions:", err);
+  }
+}
+onMounted(loadQuestions);
+
+// Filters
 const filteredData = computed(() => {
   return tableData.value.filter((item) => {
     return (
-      (!search.value ||
-        item.name.toLowerCase().includes(search.value.toLowerCase())) &&
+      (!search.value || item.name.toLowerCase().includes(search.value.toLowerCase())) &&
       (!selectedCategory.value || item.category === selectedCategory.value) &&
       (!selectedLevel.value || item.level === selectedLevel.value)
     );
   });
 });
 
-// 按钮事件
+// Actions
 function preview(row) {
-  console.log("Preview:", row);
+  currentQuestion.value = row;
+  selectedAnswer.value = null;
+  selectedAnswers.value = [];
+  previewVisible.value = true;
 }
+
+function submitPreviewAnswer() {
+  if (currentQuestion.value.type === "Single Choice") {
+    console.log("Selected:", selectedAnswer.value);
+  } else {
+    console.log("Selected:", selectedAnswers.value);
+  }
+  ElMessage.success("Answer submitted (preview mode only)");
+  previewVisible.value = false;
+}
+
 function edit(row) {
-  console.log("Edit:", row);
+  router.push(`/admin-home/question-bank/${row.id}/edit`);
 }
-function del(row) {
-  console.log("Delete:", row);
+
+async function del(row) {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to delete question "${row.name}"?`,
+      "Confirm Delete",
+      { type: "warning" }
+    );
+    await delete_question_api(row.id);
+    tableData.value = tableData.value.filter((q) => q.id !== row.id);
+    ElMessage.success("Deleted successfully");
+  } catch (err) {
+    if (err !== "cancel") {
+      ElMessage.error("Delete failed");
+      console.error(err);
+    }
+  }
 }
 </script>
 
@@ -167,5 +243,15 @@ function del(row) {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+.preview-image {
+  margin: 12px 0;
+  text-align: center;
+}
+.preview-image img {
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid #eee;
 }
 </style>

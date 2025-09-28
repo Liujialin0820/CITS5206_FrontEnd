@@ -1,6 +1,5 @@
 <template>
-  <div class="create-question">
-    <!-- back button -->
+  <div class="edit-question">
     <el-button type="text" @click="goBack">← back</el-button>
 
     <el-form
@@ -10,7 +9,7 @@
       label-position="top"
       class="form-box"
     >
-      <!-- Question Name -->
+      <!-- Name -->
       <el-form-item label="Question Name" prop="name">
         <el-input
           v-model="form.name"
@@ -20,7 +19,7 @@
 
       <!-- Four columns -->
       <el-row :gutter="16">
-        <!-- Question Type -->
+        <!-- Type -->
         <el-col :lg="6" :md="12" :sm="24">
           <el-form-item label="Question Type" prop="type">
             <el-select v-model="form.type" placeholder="Select type" clearable>
@@ -85,22 +84,20 @@
         />
       </el-form-item>
 
-      <!-- Image Upload -->
-      <el-form-item label="Image">
-        <el-upload
-          action="#"
-          list-type="picture-card"
-          :auto-upload="false"
-          :limit="1"
-          <!--
-          ✅
-          限制单张
-          --
-        >
-          :on-change="handleImageChange" :on-remove="handleImageRemove" >
-          <el-icon><Plus /></el-icon>
-        </el-upload>
-      </el-form-item>
+<!-- Image Upload -->
+<el-form-item label="Image">
+  <el-upload
+    action="#"
+    list-type="picture-card"
+    :auto-upload="false"
+    :limit="1"
+    :file-list="fileList"
+    :on-change="handleImageChange"
+    :on-remove="handleImageRemove"
+  >
+    <el-icon><Plus /></el-icon>
+  </el-upload>
+</el-form-item>
 
       <!-- Choices -->
       <el-form-item label="Choices">
@@ -112,8 +109,7 @@
           <div class="choice-label">Item {{ labelOf(index) }}</div>
           <el-input
             v-model="choice.text"
-            :placeholder="`Please input choice ${labelOf(index)}`"
-            class="choice-input"
+            :placeholder="`Choice ${labelOf(index)}`"
           />
           <el-button
             :icon="DeleteIcon"
@@ -124,17 +120,16 @@
             :disabled="form.choices.length === 1"
           />
         </div>
-
-        <el-button type="success" plain :icon="Plus" @click="addChoice">
-          Add Choice
-        </el-button>
+        <el-button type="success" plain :icon="Plus" @click="addChoice"
+          >Add Choice</el-button
+        >
       </el-form-item>
 
       <!-- Correct Answer -->
       <el-form-item label="Correct Answer" prop="correctIndex">
         <el-select
           v-model="form.correctIndex"
-          placeholder="Select"
+          placeholder="Select correct answer(s)"
           clearable
           :multiple="form.type === 'Multiple Choice'"
         >
@@ -150,33 +145,28 @@
       <!-- Actions -->
       <div class="actions">
         <el-button type="primary" size="large" @click="submitForm"
-          >Save</el-button
+          >Update</el-button
         >
-        <el-button size="large" @click="resetForm">Cancel</el-button>
+        <el-button size="large" @click="goBack">Cancel</el-button>
       </div>
     </el-form>
   </div>
 </template>
 
 <script setup>
-// All comments in English
-
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import {
-  UploadFilled,
-  Plus,
-  Delete as DeleteIcon,
-} from "@element-plus/icons-vue";
-import { create_question_api } from "@/apis/admin_api";
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { Plus, Delete as DeleteIcon } from "@element-plus/icons-vue";
+import { get_question_detail_api, update_question_api } from "@/apis/admin_api";
 
 const router = useRouter();
+const route = useRoute();
 const formRef = ref(null);
+const questionId = route.params.id;
 
-// Form model
 const form = ref({
   name: "",
-  type: "Multiple Choice",
+  type: "",
   level: "",
   category: "",
   marks: null,
@@ -185,16 +175,10 @@ const form = ref({
   choices: [{ text: "" }],
   correctIndex: [],
 });
+const fileList = ref([]);
 
-// Image upload handlers
-function handleImageChange(file, fileList) {
-  form.value.image = file.raw; // ✅ 单个文件
-}
 
-function handleImageRemove() {
-  form.value.image = null; // ✅ 移除时清空
-}
-// Validation rules
+// rules
 const rules = {
   name: [
     { required: true, message: "Please input question name", trigger: "blur" },
@@ -219,55 +203,81 @@ const rules = {
   ],
 };
 
-// Helpers
+// helpers
 const labelOf = (i) => String.fromCharCode(65 + i);
 
-// Add choice
 function addChoice() {
   form.value.choices.push({ text: "" });
 }
-
-// Remove choice
 function removeChoice(index) {
   if (form.value.choices.length === 1) return;
   form.value.choices.splice(index, 1);
-  if (form.value.correctIndex !== null) {
-    if (index === form.value.correctIndex) form.value.correctIndex = null;
-    else if (index < form.value.correctIndex) form.value.correctIndex--;
-  }
+  form.value.correctIndex = form.value.correctIndex.filter(
+    (ci) => ci !== index
+  );
+}
+// 上传新图
+function handleImageChange(file) {
+  form.value.image = file.raw;
+  fileList.value = [file]; // 只保留一张
 }
 
+// 移除
+function handleImageRemove() {
+  form.value.image = null;
+  fileList.value = [];
+}
+// 加载已有数据
+async function loadQuestion() {
+  const data = await get_question_detail_api(questionId);
 
+  form.value = {
+    name: data.name,
+    type: data.type,
+    level: data.level,
+    category: data.category,
+    marks: data.marks,
+    question: data.question_text,
+    image: null, // ✅ 只有用户上传新图时才赋值
+    choices: data.choices || [{ text: "" }],
+    correctIndex: data.choices
+      .map((c, i) => (c.is_correct ? i : null))
+      .filter((x) => x !== null),
+  };
+
+  // 显示原图
+  if (data.image) {
+    fileList.value = [
+      { name: "current.jpg", url: data.image.image },
+    ];
+  }
+}
+// submit update
 function submitForm() {
   formRef.value.validate(async (valid) => {
     if (!valid) return;
-
     try {
-      const res = await create_question_api(form.value);
-      console.log("✅ Saved:", res.data);
+      await update_question_api(questionId, form.value);
+      ElMessage.success("Updated successfully");
       router.push("/admin-home/question-bank");
     } catch (err) {
-      console.error("❌ Save failed:", err);
+      console.error("❌ Update failed:", err);
+      ElMessage.error("Update failed");
     }
   });
 }
 
-// Reset form
-function resetForm() {
-  formRef.value.resetFields();
-  form.value.choices = [{ text: "" }];
-  form.value.correctIndex = null;
-  form.value.images = [];
-}
-
-// Back navigation
 function goBack() {
   router.push("/admin-home/question-bank");
 }
+
+onMounted(() => {
+  loadQuestion();
+});
 </script>
 
 <style scoped>
-.create-question {
+.edit-question {
   padding: 24px;
   max-width: 960px;
 }
