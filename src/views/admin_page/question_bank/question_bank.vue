@@ -24,7 +24,6 @@
           <el-icon><Upload /></el-icon> Import CSV
         </el-button>
       </el-upload>
-
     </div>
 
     <!-- Filters -->
@@ -49,7 +48,7 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="filteredData" stripe border style="width: 100%">
+    <el-table :data="tableData" stripe border style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" label="Name" min-width="160" />
       <el-table-column prop="category" label="Category" width="140" />
@@ -59,9 +58,9 @@
 
       <el-table-column label="Actions" width="240">
         <template #default="scope">
-          <el-button size="small" @click="preview(scope.row)"
-            >Preview</el-button
-          >
+          <el-button size="small" @click="preview(scope.row)">
+            Preview
+          </el-button>
           <el-button size="small" type="primary" plain @click="edit(scope.row)">
             Edit
           </el-button>
@@ -95,9 +94,9 @@
         <!-- title + marks -->
         <p>
           <strong>{{ currentQuestion.name }}</strong>
-          <span v-if="currentQuestion.marks"
-            >({{ currentQuestion.marks }} marks)</span
-          >
+          <span v-if="currentQuestion.marks">
+            ({{ currentQuestion.marks }} marks)
+          </span>
         </p>
         <p>{{ currentQuestion.question_text }}</p>
 
@@ -134,9 +133,9 @@
 
       <template #footer>
         <el-button @click="previewVisible = false">Close</el-button>
-        <el-button type="primary" @click="submitPreviewAnswer"
-          >Submit</el-button
-        >
+        <el-button type="primary" @click="submitPreviewAnswer">
+          Submit
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -144,37 +143,40 @@
 
 <script setup>
 // All comments in English
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { Plus, Upload, Search } from "@element-plus/icons-vue";
 import { get_questions_api, delete_question_api } from "@/apis/admin_api";
 import { useRouter } from "vue-router";
-import DownloadCsvTemplate from "./download_csv_template.vue"; // ✅ 引入组件
+import DownloadCsvTemplate from "./download_csv_template.vue";
+import { useAuthStore } from "@/stores/authStore";
 
 const router = useRouter();
 const baseUrl = import.meta.env.VITE_BASE_URL;
+const auth = useAuthStore();
 
+// Filters
 const search = ref("");
 const selectedCategory = ref("");
 const selectedLevel = ref("");
+
+// Table state
 const page = ref(1);
-const pageSize = 10;
+const pageSize = 100;
 const total = ref(0);
 const tableData = ref([]);
 
+// Preview state
 const previewVisible = ref(false);
 const currentQuestion = ref(null);
-const selectedAnswer = ref(null); // single choice
-const selectedAnswers = ref([]); // multiple choice
-import { useAuthStore } from "@/stores/authStore"; // ✅ 引入
+const selectedAnswer = ref(null);
+const selectedAnswers = ref([]);
 
-const auth = useAuthStore(); // ✅ 使用
-
-// token 从 store 里拿
+// Token for upload headers
 const uploadHeaders = computed(() => {
   return auth.token ? { Authorization: `JWT ${auth.token}` } : {};
 });
 
-
+// Success/error for CSV import
 function handleImportSuccess(res) {
   ElMessage.success(res.message || "CSV imported successfully!");
   loadQuestions();
@@ -185,7 +187,7 @@ function handleImportError(err) {
   ElMessage.error("CSV import failed");
 }
 
-// Load questions
+// Load questions from backend
 async function loadQuestions() {
   try {
     const params = {
@@ -202,19 +204,14 @@ async function loadQuestions() {
     console.error("❌ Failed to load questions:", err);
   }
 }
-onMounted(loadQuestions);
 
-// Filters
-const filteredData = computed(() => {
-  return tableData.value.filter((item) => {
-    return (
-      (!search.value ||
-        item.name.toLowerCase().includes(search.value.toLowerCase())) &&
-      (!selectedCategory.value || item.category === selectedCategory.value) &&
-      (!selectedLevel.value || item.level === selectedLevel.value)
-    );
-  });
+// Auto reload when filters change
+watch([search, selectedCategory, selectedLevel], () => {
+  page.value = 1; // reset to first page
+  loadQuestions();
 });
+
+onMounted(loadQuestions);
 
 // Actions
 function preview(row) {
@@ -277,6 +274,10 @@ async function del(row) {
 
 .search-box {
   width: 260px;
+}
+
+.filters .el-select {
+  width: 180px;
 }
 
 .pagination {

@@ -4,55 +4,21 @@
     <el-button type="text" @click="goBack">← Back</el-button>
 
     <!-- Form -->
-    <el-form :model="form" label-position="top" class="form-box" ref="formRef">
-      <el-form-item label="Test Paper Title" prop="title">
+    <el-form :model="form" label-position="top" class="form-box">
+      <el-form-item label="Test Paper Title">
         <el-input v-model="form.title" placeholder="Enter test paper title" />
       </el-form-item>
-
-      <el-row :gutter="16">
-        <!-- Level -->
-        <el-col :span="8">
-          <el-form-item label="Level" prop="level">
-            <el-select v-model="form.level" placeholder="Select level">
-              <el-option label="Level 1" value="Level 1" />
-              <el-option label="Level 2" value="Level 2" />
-              <el-option label="Level 3" value="Level 3" />
-              <el-option label="Level 4" value="Level 4" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-
-        <!-- Category -->
-        <el-col :span="8">
-          <el-form-item label="Category" prop="category">
-            <el-select v-model="form.category" placeholder="Select category">
-              <el-option label="Vocabulary" value="Vocabulary" />
-              <el-option label="Grammar" value="Grammar" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-
-        <!-- Status -->
-        <el-col :span="8">
-          <el-form-item label="Status" prop="status">
-            <el-select v-model="form.status" placeholder="Select status">
-              <el-option label="Draft" value="Draft" />
-              <el-option label="Published" value="Published" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-      </el-row>
+      <el-form-item label="Status">
+        <el-select v-model="form.status" placeholder="Select status">
+          <el-option label="Draft" value="Draft" />
+          <el-option label="Published" value="Published" />
+        </el-select>
+      </el-form-item>
     </el-form>
 
     <!-- Filters -->
     <div class="filters">
-      <el-input
-        v-model="search"
-        placeholder="Search questions"
-        prefix-icon="Search"
-        clearable
-        class="search-box"
-      />
+      <el-input v-model="search" placeholder="Search questions" clearable />
       <el-select v-model="filterCategory" placeholder="Category" clearable>
         <el-option label="Vocabulary" value="Vocabulary" />
         <el-option label="Grammar" value="Grammar" />
@@ -63,20 +29,21 @@
         <el-option label="Level 3" value="Level 3" />
         <el-option label="Level 4" value="Level 4" />
       </el-select>
-      <el-button type="primary" @click="loadQuestions">Search</el-button>
     </div>
 
     <!-- Question Table -->
     <el-table
-      :data="filteredData"
+      ref="questionTable"
+      :data="tableData"
+      :row-key="(row) => row.id"
       border
       style="width: 100%"
-      @selection-change="handleSelectionChange"
+      @select="handleSelect"
+      @select-all="handleSelectAll"
     >
       <el-table-column type="selection" width="50" />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" label="Name" min-width="180" />
-      <el-table-column prop="category" label="Category" width="120" />
       <el-table-column prop="level" label="Level" width="120" />
       <el-table-column prop="marks" label="Marks" width="100" />
     </el-table>
@@ -89,7 +56,48 @@
         :total="total"
         :page-size="pageSize"
         v-model:current-page="page"
+        @current-change="loadQuestions"
       />
+    </div>
+
+    <!-- ✅ Level Exam Config -->
+    <div class="level-config">
+      <h3>Level Exam Config</h3>
+      <el-table :data="levelSummary" border>
+        <el-table-column prop="level" label="Level" width="120" />
+        <el-table-column
+          prop="selected"
+          label="Selected Questions"
+          width="160"
+        />
+        <el-table-column label="Mode" width="160">
+          <template #default="scope">
+            <el-select v-model="form.level_config[scope.row.level].mode">
+              <el-option label="By Count" value="count" />
+              <el-option label="By Marks" value="marks" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="Questions">
+          <template #default="scope">
+            <el-input-number
+              v-if="form.level_config[scope.row.level].mode === 'count'"
+              v-model="form.level_config[scope.row.level].exam_questions"
+              :min="0"
+              :max="scope.row.selected"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="Total Marks">
+          <template #default="scope">
+            <el-input-number
+              v-if="form.level_config[scope.row.level].mode === 'marks'"
+              v-model="form.level_config[scope.row.level].total_marks"
+              :min="0"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <!-- Selected Questions -->
@@ -97,7 +105,7 @@
       <h3>Selected Questions</h3>
       <ul>
         <li v-for="q in selectedQuestions" :key="q.id">
-          {{ q.name }} ({{ q.marks }} marks)
+          {{ q.name }} ({{ q.level }} - {{ q.marks }} marks)
         </li>
       </ul>
     </div>
@@ -113,30 +121,35 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { Search } from "@element-plus/icons-vue";
+import { ref, watch, onMounted, nextTick, computed } from "vue";
 import { get_questions_api } from "@/apis/admin_api";
+import { create_test_paper_api } from "@/apis/test_paper_api";
 
-const formRef = ref(null);
+const questionTable = ref(null);
+
 const form = ref({
   title: "",
-  level: "",
-  category: "",
   status: "Draft",
   questions: [],
+  level_config: {
+    "Level 1": { mode: "count", exam_questions: 0, total_marks: 0 },
+    "Level 2": { mode: "count", exam_questions: 0, total_marks: 0 },
+    "Level 3": { mode: "count", exam_questions: 0, total_marks: 0 },
+    "Level 4": { mode: "count", exam_questions: 0, total_marks: 0 },
+  },
 });
 
 const search = ref("");
 const filterCategory = ref("");
 const filterLevel = ref("");
 const page = ref(1);
-const pageSize = 10;
+const pageSize = 100;
 const total = ref(0);
 
 const tableData = ref([]);
 const selectedQuestions = ref([]);
 
-// Load questions
+// 载入题目
 async function loadQuestions() {
   const params = {
     page: page.value,
@@ -145,74 +158,95 @@ async function loadQuestions() {
     category: filterCategory.value || undefined,
     level: filterLevel.value || undefined,
   };
-  try {
-    const data = await get_questions_api(params);
-    tableData.value = data.results || data;
-    total.value = data.count || data.length || 0;
-  } catch (err) {
-    console.error("❌ Failed to load questions:", err);
+  const data = await get_questions_api(params);
+  tableData.value = data.results || data;
+  total.value = data.count || data.length || 0;
+
+  // 保持勾选
+  await nextTick();
+  tableData.value.forEach((row) => {
+    if (form.value.questions.includes(row.id)) {
+      questionTable.value.toggleRowSelection(row, true);
+    }
+  });
+}
+
+// 选择逻辑
+function handleSelect(selection, row) {
+  if (selection.some((q) => q.id === row.id)) {
+    if (!form.value.questions.includes(row.id)) {
+      form.value.questions.push(row.id);
+      selectedQuestions.value.push(row);
+    }
+  } else {
+    form.value.questions = form.value.questions.filter((id) => id !== row.id);
+    selectedQuestions.value = selectedQuestions.value.filter(
+      (q) => q.id !== row.id
+    );
+  }
+}
+function handleSelectAll(selection) {
+  const currentIds = tableData.value.map((q) => q.id);
+  if (selection.length) {
+    selection.forEach((q) => {
+      if (!form.value.questions.includes(q.id)) {
+        form.value.questions.push(q.id);
+        selectedQuestions.value.push(q);
+      }
+    });
+  } else {
+    form.value.questions = form.value.questions.filter(
+      (id) => !currentIds.includes(id)
+    );
+    selectedQuestions.value = selectedQuestions.value.filter(
+      (q) => !currentIds.includes(q.id)
+    );
   }
 }
 
+// 统计每个 Level
+const levelSummary = computed(() => {
+  return ["Level 1", "Level 2", "Level 3", "Level 4"].map((level) => ({
+    level,
+    selected: selectedQuestions.value.filter((q) => q.level === level).length,
+  }));
+});
+
+watch([search, filterCategory, filterLevel], () => {
+  page.value = 1;
+  loadQuestions();
+});
+
 onMounted(loadQuestions);
 
-// Filters
-const filteredData = computed(() => tableData.value);
-
-// Handle selection
-function handleSelectionChange(val) {
-  selectedQuestions.value = val;
-  form.value.questions = val.map((q) => q.id);
+// 提交
+async function submitForm() {
+  await create_test_paper_api(form.value);
+  ElMessage.success("Test paper created successfully!");
+  history.back();
 }
 
-// Submit
-function submitForm() {
-  console.log("✅ Create Test Paper:", form.value);
-  // TODO: call create_test_paper_api(form.value)
-}
-
-// Back
 function goBack() {
   history.back();
 }
 </script>
 
 <style scoped>
-.create-test-paper {
-  padding: 24px;
-  max-width: 1100px;
-}
-.form-box {
-  background: #fff;
-  padding: 20px;
-  margin-bottom: 20px;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
 .filters {
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
-.search-box {
-  width: 260px;
-}
-.pagination {
+.level-config {
   margin-top: 20px;
-  display: flex;
-  justify-content: center;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 6px;
 }
 .selected-questions {
   margin-top: 20px;
   padding: 12px;
-  background: #f9f9f9;
   border: 1px solid #eee;
   border-radius: 6px;
-}
-.actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 12px;
 }
 </style>
