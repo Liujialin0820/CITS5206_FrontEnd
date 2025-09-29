@@ -19,13 +19,8 @@ export const create_question_api = (form) => {
   fd.append("category", form.category);
   fd.append("marks", form.marks);
   fd.append("question_text", form.question);
-
-  // Send choices as a JSON string (DRF JSONField-friendly)
-  const choicesPayload = form.choices.map((c, i) => ({
-    text: c.text,
-    is_correct: form.correctIndex.includes(i),
-  }));
-  fd.append("choices", JSON.stringify(choicesPayload));
+  fd.append("choices_json", JSON.stringify(form.choices));
+  fd.append("choices", JSON.stringify(form.choices));
 
   // Append images (multiple)
   (form.images || []).forEach((file) => {

@@ -23,7 +23,7 @@ import Sidebar from "@/components/Sidebar.vue";
 
 <style scoped>
 .app-shell {
-  height: 100vh;
+  height: 90vh;
 }
 .app-aside {
   background: #1f3a77;

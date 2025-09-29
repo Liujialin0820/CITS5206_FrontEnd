@@ -1,6 +1,5 @@
 <template>
   <div class="create-question">
-    <!-- back button -->
     <el-button type="text" @click="goBack">← back</el-button>
 
     <el-form
@@ -10,7 +9,7 @@
       label-position="top"
       class="form-box"
     >
-      <!-- Question Name -->
+      <!-- Name -->
       <el-form-item label="Question Name" prop="name">
         <el-input
           v-model="form.name"
@@ -20,7 +19,7 @@
 
       <!-- Four columns -->
       <el-row :gutter="16">
-        <!-- Question Type -->
+        <!-- Type -->
         <el-col :lg="6" :md="12" :sm="24">
           <el-form-item label="Question Type" prop="type">
             <el-select v-model="form.type" placeholder="Select type" clearable>
@@ -91,13 +90,11 @@
           action="#"
           list-type="picture-card"
           :auto-upload="false"
-          :limit="1"
-          <!--
-          ✅
-          限制单张
-          --
+          :multiple="true"
+          :file-list="fileList"
+          :on-change="handleImageChange"
+          :on-remove="handleImageRemove"
         >
-          :on-change="handleImageChange" :on-remove="handleImageRemove" >
           <el-icon><Plus /></el-icon>
         </el-upload>
       </el-form-item>
@@ -112,8 +109,7 @@
           <div class="choice-label">Item {{ labelOf(index) }}</div>
           <el-input
             v-model="choice.text"
-            :placeholder="`Please input choice ${labelOf(index)}`"
-            class="choice-input"
+            :placeholder="`Choice ${labelOf(index)}`"
           />
           <el-button
             :icon="DeleteIcon"
@@ -124,17 +120,16 @@
             :disabled="form.choices.length === 1"
           />
         </div>
-
-        <el-button type="success" plain :icon="Plus" @click="addChoice">
-          Add Choice
-        </el-button>
+        <el-button type="success" plain :icon="Plus" @click="addChoice"
+          >Add Choice</el-button
+        >
       </el-form-item>
 
       <!-- Correct Answer -->
       <el-form-item label="Correct Answer" prop="correctIndex">
         <el-select
           v-model="form.correctIndex"
-          placeholder="Select"
+          placeholder="Select correct answer(s)"
           clearable
           :multiple="form.type === 'Multiple Choice'"
         >
@@ -159,42 +154,33 @@
 </template>
 
 <script setup>
-// All comments in English
-
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import {
-  UploadFilled,
-  Plus,
-  Delete as DeleteIcon,
-} from "@element-plus/icons-vue";
+import { Plus, Delete as DeleteIcon } from "@element-plus/icons-vue";
 import { create_question_api } from "@/apis/admin_api";
 
 const router = useRouter();
 const formRef = ref(null);
 
-// Form model
 const form = ref({
-  name: "",
-  type: "Multiple Choice",
-  level: "",
-  category: "",
-  marks: null,
-  question: "",
-  image: null, // ✅ 单文件
-  choices: [{ text: "" }],
-  correctIndex: [],
+  name: "Sample Question",              // 默认值
+  type: "Multiple Choice",              // 默认值
+  level: "Level 1",                     // 默认值
+  category: "Vocabulary",               // 默认值
+  marks: 10,                            // 默认值
+  question: "What is the default sample question?", // 默认值
+  images: [],                           // 默认空数组
+  choices: [
+    { text: "Option A" },
+    { text: "Option B" },
+    { text: "Option C" },
+    { text: "Option D" },
+  ],                                    // 默认四个选项
+  correctIndex: [0],                    // 默认第一个正确
 });
+const fileList = ref([]);
 
-// Image upload handlers
-function handleImageChange(file, fileList) {
-  form.value.image = file.raw; // ✅ 单个文件
-}
-
-function handleImageRemove() {
-  form.value.image = null; // ✅ 移除时清空
-}
-// Validation rules
+// rules
 const rules = {
   name: [
     { required: true, message: "Please input question name", trigger: "blur" },
@@ -219,52 +205,91 @@ const rules = {
   ],
 };
 
-// Helpers
+// helpers
 const labelOf = (i) => String.fromCharCode(65 + i);
 
-// Add choice
 function addChoice() {
-  form.value.choices.push({ text: "" });
+  form.value.choices.push({ text: `Option ${labelOf(form.value.choices.length)}` });
 }
-
-// Remove choice
 function removeChoice(index) {
   if (form.value.choices.length === 1) return;
   form.value.choices.splice(index, 1);
-  if (form.value.correctIndex !== null) {
-    if (index === form.value.correctIndex) form.value.correctIndex = null;
-    else if (index < form.value.correctIndex) form.value.correctIndex--;
-  }
+  form.value.correctIndex = form.value.correctIndex.filter(
+    (ci) => ci !== index
+  );
 }
 
+// 上传新图
+function handleImageChange(file, fileListArr) {
+  form.value.images = fileListArr.map((f) => f.raw);
+  fileList.value = fileListArr;
+}
+function handleImageRemove(file, fileListArr) {
+  form.value.images = fileListArr.map((f) => f.raw);
+  fileList.value = fileListArr;
+}
 
+// 提交
 function submitForm() {
   formRef.value.validate(async (valid) => {
     if (!valid) return;
 
+    const choices = form.value.choices.map((c, i) => ({
+      text: c.text,
+      is_correct: Array.isArray(form.value.correctIndex)
+        ? form.value.correctIndex.includes(i)
+        : form.value.correctIndex === i,
+    }));
+
+    const payload = {
+      name: form.value.name,
+      type: form.value.type,
+      level: form.value.level,
+      category: form.value.category,
+      marks: form.value.marks,
+      question_text: form.value.question,
+      choices,
+      images: form.value.images,
+    };
+
     try {
-      const res = await create_question_api(form.value);
-      console.log("✅ Saved:", res.data);
+      console.log("Payload:", payload);
+      await create_question_api(payload);
+      ElMessage.success("Created successfully");
       router.push("/admin-home/question-bank");
     } catch (err) {
       console.error("❌ Save failed:", err);
+      ElMessage.error("Save failed");
     }
   });
 }
 
-// Reset form
+// 重置（恢复默认值）
 function resetForm() {
-  formRef.value.resetFields();
-  form.value.choices = [{ text: "" }];
-  form.value.correctIndex = null;
-  form.value.images = [];
+  form.value = {
+    name: "Sample Question",
+    type: "Multiple Choice",
+    level: "Level 1",
+    category: "Vocabulary",
+    marks: 10,
+    question: "What is the default sample question?",
+    images: [],
+    choices: [
+      { text: "Option A" },
+      { text: "Option B" },
+      { text: "Option C" },
+      { text: "Option D" },
+    ],
+    correctIndex: [0],
+  };
+  fileList.value = [];
 }
 
-// Back navigation
 function goBack() {
   router.push("/admin-home/question-bank");
 }
 </script>
+
 
 <style scoped>
 .create-question {

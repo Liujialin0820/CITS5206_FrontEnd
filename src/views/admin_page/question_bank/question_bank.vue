@@ -9,10 +9,22 @@
       >
         <el-icon><Plus /></el-icon> Create Question
       </el-button>
+      <DownloadCsvTemplate />
 
-      <el-button type="primary" plain>
-        <el-icon><Upload /></el-icon> Import Files
-      </el-button>
+      <el-upload
+        :action="`${baseUrl}/questions/import_csv/`"
+        :headers="uploadHeaders"
+        accept=".csv"
+        :show-file-list="false"
+        name="file"
+        :on-success="handleImportSuccess"
+        :on-error="handleImportError"
+      >
+        <el-button type="primary" plain>
+          <el-icon><Upload /></el-icon> Import CSV
+        </el-button>
+      </el-upload>
+
     </div>
 
     <!-- Filters -->
@@ -47,7 +59,9 @@
 
       <el-table-column label="Actions" width="240">
         <template #default="scope">
-          <el-button size="small" @click="preview(scope.row)">Preview</el-button>
+          <el-button size="small" @click="preview(scope.row)"
+            >Preview</el-button
+          >
           <el-button size="small" type="primary" plain @click="edit(scope.row)">
             Edit
           </el-button>
@@ -81,7 +95,9 @@
         <!-- title + marks -->
         <p>
           <strong>{{ currentQuestion.name }}</strong>
-          <span v-if="currentQuestion.marks">({{ currentQuestion.marks }} marks)</span>
+          <span v-if="currentQuestion.marks"
+            >({{ currentQuestion.marks }} marks)</span
+          >
         </p>
         <p>{{ currentQuestion.question_text }}</p>
 
@@ -118,7 +134,9 @@
 
       <template #footer>
         <el-button @click="previewVisible = false">Close</el-button>
-        <el-button type="primary" @click="submitPreviewAnswer">Submit</el-button>
+        <el-button type="primary" @click="submitPreviewAnswer"
+          >Submit</el-button
+        >
       </template>
     </el-dialog>
   </div>
@@ -130,8 +148,10 @@ import { ref, computed, onMounted } from "vue";
 import { Plus, Upload, Search } from "@element-plus/icons-vue";
 import { get_questions_api, delete_question_api } from "@/apis/admin_api";
 import { useRouter } from "vue-router";
+import DownloadCsvTemplate from "./download_csv_template.vue"; // ✅ 引入组件
 
 const router = useRouter();
+const baseUrl = import.meta.env.VITE_BASE_URL;
 
 const search = ref("");
 const selectedCategory = ref("");
@@ -145,6 +165,25 @@ const previewVisible = ref(false);
 const currentQuestion = ref(null);
 const selectedAnswer = ref(null); // single choice
 const selectedAnswers = ref([]); // multiple choice
+import { useAuthStore } from "@/stores/authStore"; // ✅ 引入
+
+const auth = useAuthStore(); // ✅ 使用
+
+// token 从 store 里拿
+const uploadHeaders = computed(() => {
+  return auth.token ? { Authorization: `JWT ${auth.token}` } : {};
+});
+
+
+function handleImportSuccess(res) {
+  ElMessage.success(res.message || "CSV imported successfully!");
+  loadQuestions();
+}
+
+function handleImportError(err) {
+  console.error("❌ Import failed:", err);
+  ElMessage.error("CSV import failed");
+}
 
 // Load questions
 async function loadQuestions() {
@@ -169,7 +208,8 @@ onMounted(loadQuestions);
 const filteredData = computed(() => {
   return tableData.value.filter((item) => {
     return (
-      (!search.value || item.name.toLowerCase().includes(search.value.toLowerCase())) &&
+      (!search.value ||
+        item.name.toLowerCase().includes(search.value.toLowerCase())) &&
       (!selectedCategory.value || item.category === selectedCategory.value) &&
       (!selectedLevel.value || item.level === selectedLevel.value)
     );

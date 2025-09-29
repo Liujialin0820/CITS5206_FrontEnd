@@ -48,7 +48,7 @@ const active = ref("dashboard");
 
 <style scoped>
 .sidebar {
-  height: 100%;
+  height: 90%;
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
