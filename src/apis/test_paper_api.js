@@ -39,3 +39,11 @@ export const unpublish_test_paper_api = (id) =>
 /** Generate */
 export const generate_test_paper_api = (id) =>
   http.post(`/test-papers/${id}/generate/`);
+
+// 根据考试名称获取试卷 ID
+export async function get_test_paper_id_by_name(name) {
+  const data = await http.get("/test-papers/", { params: { search: name } });
+  const results = data.results || data;
+  const target = results.find((p) => p.title === name);
+  return target ? target.id : null;
+}

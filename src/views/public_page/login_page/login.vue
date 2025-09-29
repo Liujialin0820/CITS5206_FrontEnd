@@ -1,4 +1,3 @@
-<!-- StudentProfile.vue -->
 <template>
   <div class="page">
     <div class="container">
@@ -6,13 +5,14 @@
       <el-card shadow="never" class="form-card">
         <h1 class="title">Student Profile</h1>
 
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-position="top"
-          class="form"
-        >
+        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form">
+          <el-form-item prop="examName">
+            <template #label>
+              <span>Exam Name <span class="req">*</span></span>
+            </template>
+            <el-input v-model="form.examName" placeholder="Enter exam name" />
+          </el-form-item>
+
           <el-form-item prop="name">
             <template #label>
               <span>Student Name <span class="req">*</span></span>
@@ -35,12 +35,7 @@
           </el-form-item>
 
           <div class="actions">
-            <el-button
-              type="primary"
-              size="large"
-              class="start-btn"
-              @click="onSubmit"
-            >
+            <el-button type="primary" size="large" class="start-btn" @click="onSubmit">
               Start Test
             </el-button>
           </div>
@@ -52,25 +47,9 @@
         <p class="heading">Exam Instructions:</p>
         <p>
           This is a Korean Language Placement Test designed to evaluate your
-          current language level. The test includes multiple sections:
-          Vocabulary, Grammar, Listening, and Reading.
+          current language level.
         </p>
-
         <p class="mt">Time Limit: <strong>45 minutes</strong></p>
-
-        <p class="mt">Please Note:</p>
-        <ul class="list">
-          <li>Make sure you have a stable internet connection.</li>
-          <li>
-            You can only take the test once, so please focus and do your best.
-          </li>
-          <li>Do not refresh or close the browser during the test.</li>
-          <li>Your progress will not be saved if you leave the page.</li>
-        </ul>
-
-        <p class="mt">
-          When you're ready, click <strong>Start Test</strong> to begin.
-        </p>
       </div>
     </div>
   </div>
@@ -79,41 +58,68 @@
 <script setup>
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
+import { useRouter } from "vue-router";
+import { get_test_paper_id_by_name, get_exam_api } from "@/apis/test_paper_api";
 
+const router = useRouter();
 const formRef = ref(null);
 
 const form = reactive({
+  examName: "",
   name: "",
   studentNo: "",
   email: "",
 });
 
 const rules = {
-  name: [
-    { required: true, message: "Student name is required", trigger: "blur" },
-  ],
-  studentNo: [
-    { required: true, message: "Student number is required", trigger: "blur" },
-  ],
+  examName: [{ required: true, message: "Exam name is required", trigger: "blur" }],
+  name: [{ required: true, message: "Student name is required", trigger: "blur" }],
+  studentNo: [{ required: true, message: "Student number is required", trigger: "blur" }],
   email: [
     { required: true, message: "Email is required", trigger: "blur" },
-    {
-      type: "email",
-      message: "Please enter a valid email",
-      trigger: ["blur", "change"],
-    },
+    { type: "email", message: "Please enter a valid email", trigger: ["blur", "change"] },
   ],
 };
 
 const onSubmit = () => {
-  formRef.value?.validate((ok) => {
+  formRef.value?.validate(async (ok) => {
     if (!ok) return;
-    // TODO: 调用后端 API /login 或你定义的报名接口
-    ElMessage.success("Form validated. Starting the test...");
-    // 例如：router.push('/exam')
+
+    try {
+      // 1. 根据考试名称查找试卷 id
+      const id = await get_test_paper_id_by_name(form.examName);
+      if (!id) {
+        ElMessage.error("No test paper found with that name.");
+        return;
+      }
+
+      // 2. 调用 generate 获取题目
+      const paper = await get_exam_api(id);
+
+      // 3. 记录考试开始时间（毫秒时间戳）
+      const startedAt = Date.now(); // 或 new Date().toISOString()
+
+      // 4. 保存到 localStorage
+      localStorage.setItem(
+        "exam_session",
+        JSON.stringify({
+          student: { ...form },
+          paper,
+          startedAt,          // ✅ 保存考试开始时间
+          duration: 45 * 60,  // ✅ 考试时长（秒），45分钟
+        })
+      );
+
+      ElMessage.success("Exam loaded. Starting...");
+      router.push("/exam");
+    } catch (err) {
+      console.error("❌ Failed:", err);
+      ElMessage.error("Start failed");
+    }
   });
 };
 </script>
+
 
 <style scoped>
 .page {
