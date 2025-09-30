@@ -103,6 +103,7 @@ router.beforeEach((to, from, next) => {
   const isPublicPage =
     to.path.startsWith("/login") ||
     to.path.startsWith("/admin-login") ||
+    to.path.startsWith("/exam") ||
     to.path === "/";
 
   if (!isPublicPage) {
