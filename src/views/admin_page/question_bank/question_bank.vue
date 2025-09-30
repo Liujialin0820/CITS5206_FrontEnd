@@ -55,8 +55,19 @@
       <el-table-column prop="type" label="Type" width="160" />
       <el-table-column prop="level" label="Level" width="120" />
       <el-table-column prop="marks" label="Marks" width="100" />
-
-      <el-table-column label="Actions" width="240">
+      <el-table-column prop="accuracy" label="Accuracy" width="120">
+        <template #default="scope">
+          <span
+            v-if="
+              scope.row.accuracy !== null && scope.row.accuracy !== undefined
+            "
+          >
+            {{ (scope.row.accuracy * 100).toFixed(1) }}%
+          </span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="300">
         <template #default="scope">
           <el-button size="small" @click="preview(scope.row)">
             Preview
@@ -67,9 +78,13 @@
           <el-button size="small" type="danger" plain @click="del(scope.row)">
             Delete
           </el-button>
+          <el-button size="small" plain @click="showStat(scope.row)"
+            >Stats</el-button
+          >
         </template>
       </el-table-column>
     </el-table>
+    <QuestionStateDialog ref="statDialogRef" />
 
     <!-- Pagination -->
     <div class="pagination">
@@ -149,6 +164,17 @@ import { get_questions_api, delete_question_api } from "@/apis/admin_api";
 import { useRouter } from "vue-router";
 import DownloadCsvTemplate from "./download_csv_template.vue";
 import { useAuthStore } from "@/stores/authStore";
+import QuestionStateDialog  from "./question_state_dialog.vue";
+
+const statDialogRef = ref(null);
+
+function showStat(row) {
+  if (statDialogRef.value) {
+    statDialogRef.value.open(row.id);
+  } else {
+    console.error("❌ statDialogRef is null");
+  }
+}
 
 const router = useRouter();
 const baseUrl = import.meta.env.VITE_BASE_URL;

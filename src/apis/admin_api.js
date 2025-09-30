@@ -42,6 +42,9 @@ export const get_questions_api = (params = {}) => {
   return http.get(path, params);
 };
 
+export function get_question_stat_api(id) {
+  return http.get(`/exam/questions/${id}/choice-stats/`);
+}
 /**
  * Delete Question API
  * @param {number|string} id - Question ID
