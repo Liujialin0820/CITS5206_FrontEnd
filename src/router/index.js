@@ -34,6 +34,13 @@ const router = createRouter({
         import("@/views/admin_page/question_bank/edit_question.vue"),
       props: true, // ✅ 将 id 作为 props 传递
     },
+    {
+      path: "/admin-home/test-papers/:id/result",
+      name: "test-result",
+      component: () =>
+        import("@/views/admin_page/test_papers/test_paper_result.vue"),
+      props: true, // ✅ 将 id 作为 props 传递
+    },
 
     // ----------------- 管理员后台页面 -----------------
     {
@@ -78,12 +85,6 @@ const router = createRouter({
           component: () =>
             import("@/views/admin_page/test_papers/preview_test_paper.vue"),
           props: true,
-        },
-        {
-          path: "test-papers/result",
-          name: "test-result",
-          component: () =>
-            import("@/views/admin_page/test_papers/test_result.vue"),
         },
         {
           path: "students",

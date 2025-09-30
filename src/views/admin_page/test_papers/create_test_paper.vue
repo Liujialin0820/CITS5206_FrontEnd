@@ -8,15 +8,44 @@
       <el-form-item label="Test Paper Title">
         <el-input v-model="form.title" placeholder="Enter test paper title" />
       </el-form-item>
-      <el-form-item label="Status"> </el-form-item
-      ><el-form-item label="Exam Level">
-        <el-select v-model="form.level" placeholder="Select level">
-          <el-option label="Level 1" value="Level 1" />
-          <el-option label="Level 2" value="Level 2" />
-          <el-option label="Level 3" value="Level 3" />
-          <el-option label="Level 4" value="Level 4" />
-        </el-select>
-      </el-form-item>
+
+      <el-row :gutter="16">
+        <!-- Exam Level -->
+        <el-col :span="6">
+          <el-form-item label="Exam Level">
+            <el-select v-model="form.level" placeholder="Select level">
+              <el-option label="Level 1" value="Level 1" />
+              <el-option label="Level 2" value="Level 2" />
+              <el-option label="Level 3" value="Level 3" />
+              <el-option label="Level 4" value="Level 4" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+
+        <!-- Duration -->
+        <el-col :span="6">
+          <el-form-item label="Duration (minutes)">
+            <el-input-number
+              v-model="form.duration_minutes"
+              :min="1"
+              :max="600"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+
+        <!-- Pass percentage -->
+        <el-col :span="6">
+          <el-form-item label="Pass Percentage (%)">
+            <el-input-number
+              v-model="form.pass_percentage"
+              :min="1"
+              :max="100"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
     </el-form>
 
     <!-- Filters -->
@@ -68,11 +97,7 @@
       <h3>Level Exam Config</h3>
       <el-table :data="levelSummary" border>
         <el-table-column prop="level" label="Level" width="120" />
-        <el-table-column
-          prop="selected"
-          label="Selected Questions"
-          width="160"
-        />
+        <el-table-column prop="selected" label="Selected Questions" width="160" />
         <el-table-column label="Mode" width="160">
           <template #default="scope">
             <el-select v-model="form.level_config[scope.row.level].mode">
@@ -134,7 +159,9 @@ const form = ref({
   title: "",
   status: "Published",
   questions: [],
-  level: "", // 👈 新增字段
+  level: "",
+  duration_minutes: 60, // 🆕 default
+  pass_percentage: 60,  // 🆕 default
   level_config: {
     "Level 1": { mode: "count", exam_questions: 0, total_marks: 0 },
     "Level 2": { mode: "count", exam_questions: 0, total_marks: 0 },
@@ -153,7 +180,7 @@ const total = ref(0);
 const tableData = ref([]);
 const selectedQuestions = ref([]);
 
-// 载入题目
+// load questions
 async function loadQuestions() {
   const params = {
     page: page.value,
@@ -166,7 +193,7 @@ async function loadQuestions() {
   tableData.value = data.results || data;
   total.value = data.count || data.length || 0;
 
-  // 保持勾选
+  // keep checked
   await nextTick();
   tableData.value.forEach((row) => {
     if (form.value.questions.includes(row.id)) {
@@ -175,7 +202,7 @@ async function loadQuestions() {
   });
 }
 
-// 选择逻辑
+// select logic
 function handleSelect(selection, row) {
   if (selection.some((q) => q.id === row.id)) {
     if (!form.value.questions.includes(row.id)) {
@@ -208,7 +235,7 @@ function handleSelectAll(selection) {
   }
 }
 
-// 统计每个 Level
+// level summary
 const levelSummary = computed(() => {
   return ["Level 1", "Level 2", "Level 3", "Level 4"].map((level) => ({
     level,
@@ -223,9 +250,13 @@ watch([search, filterCategory, filterLevel], () => {
 
 onMounted(loadQuestions);
 
-// 提交
+// submit
 async function submitForm() {
-  await create_test_paper_api(form.value);
+  const payload = {
+    ...form.value,
+    duration_seconds: form.value.duration_minutes * 60,
+  };
+  await create_test_paper_api(payload);
   ElMessage.success("Test paper created successfully!");
   history.back();
 }
@@ -252,5 +283,10 @@ function goBack() {
   padding: 12px;
   border: 1px solid #eee;
   border-radius: 6px;
+}
+.actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
 }
 </style>

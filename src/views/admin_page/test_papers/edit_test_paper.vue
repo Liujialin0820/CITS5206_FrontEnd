@@ -10,7 +10,8 @@
       </el-form-item>
 
       <el-row :gutter="16">
-        <el-col :span="8">
+        <!-- Exam Level -->
+        <el-col :span="6">
           <el-form-item label="Exam Level">
             <el-select v-model="form.level" placeholder="Select level">
               <el-option label="Level 1" value="Level 1" />
@@ -18,6 +19,31 @@
               <el-option label="Level 3" value="Level 3" />
               <el-option label="Level 4" value="Level 4" />
             </el-select>
+          </el-form-item>
+        </el-col>
+
+
+        <!-- Duration -->
+        <el-col :span="6">
+          <el-form-item label="Duration (minutes)">
+            <el-input-number
+              v-model="form.duration_minutes"
+              :min="1"
+              :max="600"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+
+        <!-- Pass percentage -->
+        <el-col :span="6">
+          <el-form-item label="Pass Percentage (%)">
+            <el-input-number
+              v-model="form.pass_percentage"
+              :min="1"
+              :max="100"
+              style="width: 100%"
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -72,11 +98,7 @@
       <h3>Level Exam Config</h3>
       <el-table :data="levelSummary" border>
         <el-table-column prop="level" label="Level" width="120" />
-        <el-table-column
-          prop="selected"
-          label="Selected Questions"
-          width="160"
-        />
+        <el-table-column prop="selected" label="Selected Questions" width="160" />
         <el-table-column label="Mode" width="160">
           <template #default="scope">
             <el-select v-model="form.level_config[scope.row.level].mode">
@@ -148,7 +170,9 @@ const form = ref({
   title: "",
   status: "Published",
   questions: [],
-  level: "", // 👈 新增字段
+  level: "",
+  duration_minutes: 60, // 🆕 default 60 minutes
+  pass_percentage: 60, // 🆕 default 60%
 
   level_config: {
     "Level 1": { mode: "count", exam_questions: 0, total_marks: 0 },
@@ -168,7 +192,7 @@ const total = ref(0);
 const tableData = ref([]);
 const selectedQuestions = ref([]);
 
-// 加载试卷详情
+// load test paper
 async function loadTestPaper() {
   const id = route.params.id;
   const data = await get_test_paper_api(id);
@@ -176,13 +200,16 @@ async function loadTestPaper() {
     title: data.title,
     status: data.status,
     questions: data.questions || [],
+    level: data.level || "",
+    duration_minutes: Math.floor((data.duration_seconds || 3600) / 60),
+    pass_percentage: data.pass_percentage || 60,
     level_config: data.level_config || form.value.level_config,
   };
   selectedQuestions.value = data.questions_detail || [];
   await loadQuestions();
 }
 
-// 加载题目
+// load questions
 async function loadQuestions() {
   const params = {
     page: page.value,
@@ -203,7 +230,7 @@ async function loadQuestions() {
   });
 }
 
-// 选择逻辑
+// selection logic
 function handleSelect(selection, row) {
   if (selection.some((q) => q.id === row.id)) {
     if (!form.value.questions.includes(row.id)) {
@@ -236,7 +263,7 @@ function handleSelectAll(selection) {
   }
 }
 
-// Level summary
+// level summary
 const levelSummary = computed(() => {
   return ["Level 1", "Level 2", "Level 3", "Level 4"].map((level) => ({
     level,
@@ -251,14 +278,18 @@ watch([search, filterCategory, filterLevel], () => {
 
 onMounted(loadTestPaper);
 
-// 更新
+// update
 async function submitForm() {
-  await update_test_paper_api(route.params.id, form.value);
+  const payload = {
+    ...form.value,
+    duration_seconds: form.value.duration_minutes * 60, // 转换成秒发给后端
+  };
+  await update_test_paper_api(route.params.id, payload);
   ElMessage.success("Test paper updated successfully!");
   history.back();
 }
 
-// 删除
+// delete
 async function deletePaper() {
   try {
     await ElMessageBox.confirm("Are you sure you want to delete?", "Confirm", {

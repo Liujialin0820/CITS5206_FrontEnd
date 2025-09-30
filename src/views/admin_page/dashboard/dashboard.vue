@@ -10,11 +10,14 @@
 
     <!-- Charts -->
     <div class="charts">
+      <!-- Chart 1: Students per Level -->
       <div class="chart-box">
-        <div ref="barChartRef" class="chart"></div>
+        <div ref="studentsChartRef" class="chart"></div>
       </div>
+
+      <!-- Chart 2: Questions & Accuracy -->
       <div class="chart-box">
-        <div ref="radarChartRef" class="chart"></div>
+        <div ref="questionsChartRef" class="chart"></div>
       </div>
     </div>
   </div>
@@ -24,77 +27,112 @@
 // All comments in English
 import { ref, onMounted } from "vue";
 import * as echarts from "echarts";
+import http from "@/apis/http";
 
-// Stats
-const stats = [
-  { label: "Total Students", value: 25 },
-  { label: "Total Test Paper", value: 10 },
-  { label: "Total Questions", value: 25 },
-  { label: "Total Test Attempt", value: 50 },
-];
+// Stats for cards
+const stats = ref([
+  { label: "Total Students", value: 0 },
+  { label: "Total Test Papers", value: 0 },
+  { label: "Total Questions", value: 0 },
+  { label: "Total Attempts", value: 0 },
+]);
 
 // Chart refs
-const barChartRef = ref(null);
-const radarChartRef = ref(null);
+const studentsChartRef = ref(null);
+const questionsChartRef = ref(null);
 
-onMounted(() => {
-  initBarChart();
-  initRadarChart();
-});
+// Data for charts
+const levelNames = ref([]);
+const studentCounts = ref([]);
+const questionCounts = ref([]);
+const accuracies = ref([]);
 
-// Bar chart
-function initBarChart() {
-  const chart = echarts.init(barChartRef.value);
+// Load stats from backend
+async function loadStats() {
+  try {
+    const data = await http.get("/exam/admin/global-stats/");
+    // Example response structure:
+    // {
+    //   student_count: 120,
+    //   paper_count: 20,
+    //   question_count: 200,
+    //   attempt_count: 350,
+    //   levels: {
+    //     "Level 1": { students: 40, questions: 50, accuracy: 75 },
+    //     "Level 2": { students: 30, questions: 40, accuracy: 68 },
+    //     ...
+    //   }
+    // }
+
+    stats.value = [
+      { label: "Total Students", value: data.student_count },
+      { label: "Total Test Papers", value: data.paper_count },
+      { label: "Total Questions", value: data.question_count },
+      { label: "Total Attempts", value: data.attempt_count },
+    ];
+
+    levelNames.value = Object.keys(data.levels || {});
+    studentCounts.value = levelNames.value.map((l) => data.levels[l].students);
+    questionCounts.value = levelNames.value.map((l) => data.levels[l].questions);
+    accuracies.value = levelNames.value.map((l) => data.levels[l].accuracy);
+
+    initStudentsChart();
+    initQuestionsChart();
+  } catch (err) {
+    console.error("❌ Failed to load stats:", err);
+  }
+}
+
+// Chart 1: Students per Level
+function initStudentsChart() {
+  const chart = echarts.init(studentsChartRef.value);
   chart.setOption({
-    title: { text: "Number of Questions per Category", left: "center" },
+    title: { text: "Students per Level", left: "center" },
     tooltip: {},
-    xAxis: {
-      type: "category",
-      data: ["Vocabulary", "Grammar", "Listening", "Reading", "Writing"],
-    },
-    yAxis: {
-      type: "value",
-      name: "Number of Questions",
-    },
+    xAxis: { type: "category", data: levelNames.value },
+    yAxis: { type: "value", name: "Students" },
     series: [
       {
-        data: [12, 15, 9, 10, 6],
+        data: studentCounts.value,
         type: "bar",
-        itemStyle: { color: "#f8b400" },
+        itemStyle: { color: "#5470C6" },
       },
     ],
   });
 }
 
-// Radar chart
-function initRadarChart() {
-  const chart = echarts.init(radarChartRef.value);
+// Chart 2: Questions & Accuracy
+function initQuestionsChart() {
+  const chart = echarts.init(questionsChartRef.value);
   chart.setOption({
-    title: { text: "Average Score per Question Category (Radar Chart)", left: "center" },
-    tooltip: {},
-    radar: {
-      indicator: [
-        { name: "Vocabulary", max: 100 },
-        { name: "Grammar", max: 100 },
-        { name: "Listening", max: 100 },
-        { name: "Reading", max: 100 },
-        { name: "Writing", max: 100 },
-      ],
-    },
+    title: { text: "Questions & Accuracy per Level", left: "center" },
+    tooltip: { trigger: "axis" },
+    legend: { data: ["Questions", "Accuracy %"] },
+    xAxis: { type: "category", data: levelNames.value },
+    yAxis: [
+      { type: "value", name: "Questions" },
+      { type: "value", name: "Accuracy %", min: 0, max: 100 },
+    ],
     series: [
       {
-        type: "radar",
-        data: [
-          {
-            value: [80, 85, 75, 78, 65],
-            areaStyle: { color: "rgba(255,165,0,0.5)" },
-            lineStyle: { color: "#ffa500" },
-          },
-        ],
+        name: "Questions",
+        type: "bar",
+        data: questionCounts.value,
+        itemStyle: { color: "#91CC75" },
+      },
+      {
+        name: "Accuracy %",
+        type: "line",
+        yAxisIndex: 1,
+        data: accuracies.value,
+        itemStyle: { color: "#EE6666" },
+        smooth: true,
       },
     ],
   });
 }
+
+onMounted(loadStats);
 </script>
 
 <style scoped>

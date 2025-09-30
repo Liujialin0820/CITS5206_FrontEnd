@@ -15,6 +15,10 @@ export const get_test_paper_api = (id) => {
   return http.get(`/test-papers/${id}/`);
 };
 
+export const get_test_paper_result_api = (id) => {
+  return http.get(`/exam/admin/papers/${id}/result/`);
+};
+
 export const get_exam_api = (id) => {
   return http.get(`/test-papers/${id}/generate/`);
 };
