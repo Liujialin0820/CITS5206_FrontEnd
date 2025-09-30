@@ -8,10 +8,13 @@
       <el-form-item label="Test Paper Title">
         <el-input v-model="form.title" placeholder="Enter test paper title" />
       </el-form-item>
-      <el-form-item label="Status">
-        <el-select v-model="form.status" placeholder="Select status">
-          <el-option label="Draft" value="Draft" />
-          <el-option label="Published" value="Published" />
+      <el-form-item label="Status"> </el-form-item
+      ><el-form-item label="Exam Level">
+        <el-select v-model="form.level" placeholder="Select level">
+          <el-option label="Level 1" value="Level 1" />
+          <el-option label="Level 2" value="Level 2" />
+          <el-option label="Level 3" value="Level 3" />
+          <el-option label="Level 4" value="Level 4" />
         </el-select>
       </el-form-item>
     </el-form>
@@ -129,8 +132,9 @@ const questionTable = ref(null);
 
 const form = ref({
   title: "",
-  status: "Draft",
+  status: "Published",
   questions: [],
+  level: "", // 👈 新增字段
   level_config: {
     "Level 1": { mode: "count", exam_questions: 0, total_marks: 0 },
     "Level 2": { mode: "count", exam_questions: 0, total_marks: 0 },

@@ -1,12 +1,40 @@
 <template>
   <div class="students-page">
+    <!-- Filters -->
+    <div class="filters">
+      <el-input
+        v-model="search"
+        placeholder="Search by name/email/student number"
+        clearable
+        class="search-box"
+      />
+      <el-button type="primary" @click="loadStudents">Search</el-button>
+    </div>
+
     <!-- Table -->
-    <el-table :data="students" stripe border style="width: 100%">
-      <el-table-column prop="id" label="student id" width="100" />
-      <el-table-column prop="student_id" label="student code" width="140" />
-      <el-table-column prop="name" label="name" min-width="180" />
-      <el-table-column prop="email" label="e-mail" min-width="220" />
-      <el-table-column prop="registration_date" label="registration date" width="200" />
+    <el-table :data="students" stripe border>
+      <el-table-column prop="student_no" label="Student Number" width="160" />
+      <el-table-column prop="name" label="Name" min-width="160" />
+      <el-table-column prop="email" label="E-mail" min-width="220" />
+      <el-table-column
+        prop="created_at"
+        label="Registration Date"
+        width="200"
+      />
+
+      <!-- Level 1-4 stats -->
+      <el-table-column label="Exams (Attempts / Passed)">
+        <template #default="{ row }">
+          <div v-for="(stat, level) in row.attempts" :key="level">
+            <el-link type="primary" @click="showAttempts(row.id, level)">
+              {{ level }}: {{ stat.count }} /
+              <span :style="{ color: stat.passed ? 'green' : 'red' }">
+                {{ stat.passed ? "Yes" : "No" }}
+              </span>
+            </el-link>
+          </div>
+        </template>
+      </el-table-column>
     </el-table>
 
     <!-- Pagination -->
@@ -20,37 +48,41 @@
         @current-change="loadStudents"
       />
     </div>
+
+    <!-- 子组件 -->
+    <StudentAttemptsDialog ref="attemptDialogRef" />
   </div>
 </template>
 
 <script setup>
-// All comments in English
 import { ref, onMounted } from "vue";
+import { get_students_api } from "@/apis/students_api";
+import StudentAttemptsDialog from "./student_attempts_dialog.vue";
 
-// pagination state
 const page = ref(1);
-const pageSize = 6; // per page
-const total = ref(30); // mock total count
-
-// student list
+const pageSize = 20;
+const total = ref(0);
+const search = ref("");
 const students = ref([]);
+const attemptDialogRef = ref(null);
 
-// mock data (normally fetch from backend API)
-const allData = [
-  { id: "00001", student_id: "S20231201", name: "Alice Zhang", email: "alice.zhang@student.edu.au", registration_date: "2025-02-14 10:32:45" },
-  { id: "00002", student_id: "S20231187", name: "Ben Thompson", email: "ben.thompson@student.edu.au", registration_date: "2025-01-22 14:05:12" },
-  { id: "00003", student_id: "S20231215", name: "Faisal Khan", email: "faisal.khan@student.edu.au", registration_date: "2025-03-03 09:48:30" },
-  { id: "00004", student_id: "S20231098", name: "David Lee", email: "david.lee@student.edu.au", registration_date: "2025-02-28 16:20:18" },
-  { id: "00005", student_id: "S20231145", name: "Emily Nguyen", email: "emily.nguyen@student.edu.au", registration_date: "2025-04-10 08:15:03" },
-  { id: "00006", student_id: "S20231302", name: "Grace Lin", email: "grace.lin@student.edu.au", registration_date: "2025-05-01 12:50:55" },
-  // 可以继续补更多 mock 数据
-];
+async function loadStudents() {
+  try {
+    const params = {
+      page: page.value,
+      page_size: pageSize,
+      search: search.value,
+    };
+    const data = await get_students_api(params);
+    students.value = data.results || data;
+    total.value = data.count || students.value.length;
+  } catch (err) {
+    console.error("❌ Failed to load students:", err);
+  }
+}
 
-// load data by page
-function loadStudents() {
-  const start = (page.value - 1) * pageSize;
-  const end = start + pageSize;
-  students.value = allData.slice(start, end);
+function showAttempts(studentId, level) {
+  attemptDialogRef.value.open(studentId, level);
 }
 
 onMounted(() => {
@@ -61,6 +93,14 @@ onMounted(() => {
 <style scoped>
 .students-page {
   padding: 20px;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.search-box {
+  width: 300px;
 }
 .pagination {
   margin-top: 20px;

@@ -11,10 +11,12 @@
 
       <el-row :gutter="16">
         <el-col :span="8">
-          <el-form-item label="Status">
-            <el-select v-model="form.status" placeholder="Select status">
-              <el-option label="Draft" value="Draft" />
-              <el-option label="Published" value="Published" />
+          <el-form-item label="Exam Level">
+            <el-select v-model="form.level" placeholder="Select level">
+              <el-option label="Level 1" value="Level 1" />
+              <el-option label="Level 2" value="Level 2" />
+              <el-option label="Level 3" value="Level 3" />
+              <el-option label="Level 4" value="Level 4" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -40,9 +42,9 @@
     <el-table
       ref="questionTable"
       :data="tableData"
-      :row-key="row => row.id"
+      :row-key="(row) => row.id"
       border
-      style="width:100%"
+      style="width: 100%"
       @select="handleSelect"
       @select-all="handleSelectAll"
     >
@@ -70,7 +72,11 @@
       <h3>Level Exam Config</h3>
       <el-table :data="levelSummary" border>
         <el-table-column prop="level" label="Level" width="120" />
-        <el-table-column prop="selected" label="Selected Questions" width="160" />
+        <el-table-column
+          prop="selected"
+          label="Selected Questions"
+          width="160"
+        />
         <el-table-column label="Mode" width="160">
           <template #default="scope">
             <el-select v-model="form.level_config[scope.row.level].mode">
@@ -140,8 +146,10 @@ const questionTable = ref(null);
 
 const form = ref({
   title: "",
-  status: "Draft",
+  status: "Published",
   questions: [],
+  level: "", // 👈 新增字段
+
   level_config: {
     "Level 1": { mode: "count", exam_questions: 0, total_marks: 0 },
     "Level 2": { mode: "count", exam_questions: 0, total_marks: 0 },
@@ -204,7 +212,9 @@ function handleSelect(selection, row) {
     }
   } else {
     form.value.questions = form.value.questions.filter((id) => id !== row.id);
-    selectedQuestions.value = selectedQuestions.value.filter((q) => q.id !== row.id);
+    selectedQuestions.value = selectedQuestions.value.filter(
+      (q) => q.id !== row.id
+    );
   }
 }
 function handleSelectAll(selection) {
@@ -217,8 +227,12 @@ function handleSelectAll(selection) {
       }
     });
   } else {
-    form.value.questions = form.value.questions.filter((id) => !currentIds.includes(id));
-    selectedQuestions.value = selectedQuestions.value.filter((q) => !currentIds.includes(q.id));
+    form.value.questions = form.value.questions.filter(
+      (id) => !currentIds.includes(id)
+    );
+    selectedQuestions.value = selectedQuestions.value.filter(
+      (q) => !currentIds.includes(q.id)
+    );
   }
 }
 
@@ -262,8 +276,26 @@ function goBack() {
 </script>
 
 <style scoped>
-.filters { display:flex; gap:12px; margin-bottom:12px; }
-.level-config { margin-top:20px; padding:12px; border:1px solid #eee; border-radius:6px; }
-.selected-questions { margin-top:20px; padding:12px; border:1px solid #eee; border-radius:6px; }
-.actions { margin-top:20px; display:flex; gap:12px; }
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.level-config {
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+.selected-questions {
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+.actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+}
 </style>

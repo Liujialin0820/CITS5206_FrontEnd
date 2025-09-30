@@ -47,13 +47,13 @@
           >
             Publish
           </el-button>
-          <el-button
+          <!-- <el-button
             v-if="scope.row.status === 'Published'"
             type="warning" plain size="small"
             @click="unpublish(scope.row)"
           >
             Unpublish
-          </el-button>
+          </el-button> -->
           <el-button
             v-if="scope.row.status !== 'Expired'"
             plain size="small"
@@ -61,20 +61,20 @@
           >
             Edit
           </el-button>
-          <el-button
+          <!-- <el-button
             v-if="['Pending','Unpublished'].includes(scope.row.status)"
             type="danger" plain size="small"
             @click="del(scope.row)"
           >
             Delete
-          </el-button>
-          <el-button
+          </el-button> -->
+          <!-- <el-button
             v-if="scope.row.status === 'Published'"
             type="success" size="small"
             @click="share(scope.row)"
           >
             Share
-          </el-button>
+          </el-button> -->
         </template>
       </el-table-column>
     </el-table>
